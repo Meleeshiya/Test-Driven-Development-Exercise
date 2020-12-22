@@ -1,0 +1,21 @@
+configuration:
+  status: warn
+
+  appenders:
+    console:
+      name: LogToConsole
+      patternLayout:
+        pattern: "[%-5level] %d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %c{1} - %msg%n"
+
+  loggers:
+    logger:
+      - name: uk.ac.shu.centric
+        level: info
+        additivity: false
+        appenderRef:
+          - ref: LogToConsole
+
+    root:
+      level: error
+      appenderRef:
+        ref: LogToConsole
