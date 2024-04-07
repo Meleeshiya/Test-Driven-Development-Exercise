@@ -14,7 +14,7 @@ import uk.ac.shu.centric.services.OfficerService.UpdateOfficerRank;
 import uk.ac.shu.centric.support.Result;
 import uk.ac.shu.centric.support.SimpleTestBase;
 import uk.ac.shu.centric.support.TestUtils;
-
+import java.time.LocalDate;
 import java.util.List;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -86,34 +86,42 @@ public class OfficerServiceTest extends SimpleTestBase {
     }
 
     @Test
+    public void shouldNotGetOfficerWhenNotFound() {
+        given(anOfficer("O1").name("Taylah Peters").rank(RankInspector));
+        given(anOfficer("O2").name("Cairon Stubbs").rank(RankSergent));
+
+        Result<Officer> result = officerService.getOfficer("07");
+        assertFailure(result, "No such officer");
+
+    }
+
+    @Test
     public void shouldCreateOfficer() {
 
-        Result<Officer> result = officerService.createOfficer(aCreateOfficerForm("Vivien Conley", "RankConstable"));
+        Result<Officer> result = officerService.createOfficer(aCreateOfficerForm("Vivien Conley", "RankConstable", LocalDate.of(1988, 11, 23)));
 
         assertSuccess(result, allOf(
                 hasProperty("id", not(is(emptyOrNullString()))),
                 hasProperty("name", equalTo("Vivien Conley")),
-                hasProperty("rank", equalTo(RankConstable))
+                hasProperty("rank", equalTo(RankConstable)),
+                hasProperty("dateOfBirth", notNullValue())
         ));
     }
 
     @Test
     public void shouldNotCreateOfficerWithInvalidRank() {
 
-        Result<Officer> result = officerService.createOfficer(aCreateOfficerForm("Vivien Conley", "RankFoo"));
+        Result<Officer> result = officerService.createOfficer(aCreateOfficerForm("Vivien Conley", "RankFoo", LocalDate.of(1998, 9, 04) ));
 
         assertFailure(result, "Invalid rank given");
     }
 
     @Test
-    @Disabled("Not yet implemented")
     public void shouldUpdateAnOfficerRank() {
         given(anOfficer("O1").name("Taylah Peters").rank(RankInspector));
         given(anOfficer("O2").name("Cairon Stubbs").rank(RankSergent));
 
         Result<Officer> result = officerService.updateOfficerRank("O2", anUpdateOfficerRankForm("RankConstable"));
-
-        TestUtils.logJson(result); // Helpful; remove when complete.
 
         assertSuccess(result, anything());
         assertThat(officerRepository.findAll(), containsInAnyOrder(
@@ -122,12 +130,51 @@ public class OfficerServiceTest extends SimpleTestBase {
         ));
     }
 
+    @Test
+    public void shouldPromoteOfficerToSergeantFrmRankConstable() {
+        given(anOfficer("O1").name("Alistair Mcdonald").rank(RankConstable));
+
+        Result<Officer> result = officerService.promoteOfficerRank("O1");
+        assertSuccess(result, hasProperty("rank", equalTo(RankSergent)));
+
+    }
+
+    @Test
+    public void shouldPromoteOfficerToRankInspectorFrmRankSergent() {
+        given(anOfficer("O4").name("John Affleck").rank(RankSergent));
+
+        Result<Officer> result = officerService.promoteOfficerRank("O4");
+        assertSuccess(result, hasProperty("rank", equalTo(RankInspector)));
+
+    }
+
+    @Test
+    public void shouldPromoteOfficerToRankChiefInspectorFrmRankInspector() {
+        given(anOfficer("O2").name("Theo Nichols").rank(RankInspector));
+
+        Result<Officer> result = officerService.promoteOfficerRank("O2");
+        assertSuccess(result, hasProperty("rank", equalTo(RankChiefInspector)));
+
+    }
+
+  @Test
+    public void shouldNotPromoteAnOfficerAlreadyInTopRank() {
+        given(anOfficer("O3").name("Veronika Winter").rank(RankChiefInspector));
+
+        Result<Officer> result = officerService.promoteOfficerRank("O3");
+        assertFailure(result, "Cannot promote an officer already at top rank");
+
+    }
+
+
+
     // region Support
 
-    private static CreateOfficer aCreateOfficerForm(String name, String rank) {
+    private static CreateOfficer aCreateOfficerForm(String name, String rank, LocalDate dob) {
         CreateOfficer form = new CreateOfficer();
         form.setName(name);
         form.setRank(rank);
+        form.setDateOfBirth(dob);
         return form;
     }
 

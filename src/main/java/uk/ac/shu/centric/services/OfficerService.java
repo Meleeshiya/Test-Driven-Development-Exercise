@@ -7,7 +7,8 @@ import uk.ac.shu.centric.models.Officer;
 import uk.ac.shu.centric.models.OfficerRanks;
 import uk.ac.shu.centric.repositories.OfficerRepository;
 import uk.ac.shu.centric.support.Result;
-
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 
 import static uk.ac.shu.centric.support.Result.failResult;
@@ -42,10 +43,19 @@ public class OfficerService {
         if (rank == null)
             return failResult("Invalid rank given");
 
+        // Validate date of birth.
+        LocalDate dateOfBirth;
+        try {
+            dateOfBirth = form.getDateOfBirth();
+        } catch (DateTimeParseException e) {
+            return failResult("Invalid date format. Please provide a valid date.");
+        }
+
         // Create the officer.
         Officer officer = new Officer();
         officer.setName(form.getName());
-        officer.setRank(OfficerRanks.RankChiefInspector);
+        officer.setRank(rank);
+        officer.setDateOfBirth(dateOfBirth);
         officer = officerRepository.save(officer);
 
         return successResult(officer);
@@ -59,10 +69,45 @@ public class OfficerService {
             return failResult(getOfficer);
         Officer officer = getOfficer.getEntity();
 
-        // Update the officer's rank.
-        // ...
+        // Extract and validate.
+        OfficerRanks newRank = EnumUtils.getEnum(OfficerRanks.class, form.getRank());
+        if (newRank == null)
+            return failResult("Invalid rank given");
 
-        return failResult("Not yet implemented");
+        officer.setRank(newRank);
+        officer = officerRepository.save(officer);
+
+        return successResult(officer);
+    }
+
+    public Result<Officer> promoteOfficerRank(String officerId) {
+
+        // Get the original officer.
+        Result<Officer> getOfficer = getOfficer(officerId);
+        if (getOfficer.isFailure())
+            return failResult(getOfficer);
+        Officer officer = getOfficer.getEntity();
+
+        OfficerRanks officerRank = officer.getRank();
+
+        if(officerRank == OfficerRanks.RankConstable) {
+            officer.setRank(OfficerRanks.RankSergent);
+        }
+        else if(officerRank == OfficerRanks.RankSergent) {
+            officer.setRank(OfficerRanks.RankInspector);
+        }
+        else if (officerRank == OfficerRanks.RankInspector) {
+            officer.setRank(OfficerRanks.RankChiefInspector);
+        }
+        else if (officerRank == OfficerRanks.RankChiefInspector) {
+            return failResult("Cannot promote an officer already at top rank");
+        }
+
+        //update the officer entity with promoted rank
+        officer = officerRepository.save(officer);
+
+        return successResult(officer);
+
     }
 
     // region Forms
@@ -71,6 +116,7 @@ public class OfficerService {
 
         private String name;
         private String rank;
+        private LocalDate dateOfBirth;
 
         // region Properties
 
@@ -89,6 +135,10 @@ public class OfficerService {
         public void setRank(String rank) {
             this.rank = rank;
         }
+
+        public LocalDate getDateOfBirth() { return dateOfBirth; }
+
+        public void setDateOfBirth(LocalDate dateOfBirth) { this.dateOfBirth= dateOfBirth; }
 
         // endregion
     }
